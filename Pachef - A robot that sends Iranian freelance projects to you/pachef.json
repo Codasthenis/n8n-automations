@@ -23,7 +23,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "{\n  \"skills\": [\"python\", \"n8n\", \"telegram\"],\n  \"ids\": []\n}\n",
+        "jsonOutput": "{\n  \"skills\": [\"python\", \"n8n\", \"telegram\"]\n",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
