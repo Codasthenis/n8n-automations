@@ -1,0 +1,309 @@
+{
+  "name": "Pachef - A robot that sends Iranian freelance projects to you",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -336,
+        0
+      ],
+      "id": "05ae4753-6710-411f-a534-50b6500a27a7",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"skills\": [\"python\", \"n8n\", \"telegram\"],\n  \"ids\": []\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -112,
+        0
+      ],
+      "id": "fc5b092c-313d-4014-8485-cedd9fa2ec38",
+      "name": "Get Skills"
+    },
+    {
+      "parameters": {
+        "jsCode": "var urls = [];\nfor (const key in $input.first().json.skills) {\n  urls.push( \n    {\n      json: {\n        \"url\": \"https://www.karlancer.com/api/publics/skills/auto-complete?s=\"+$input.first().json.skills[key]\n      }\n    } \n  );\n  \n}\nreturn urls;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        0
+      ],
+      "id": "14c6156b-3d38-4b21-a7a9-b201fbd33069",
+      "name": "Make Skill Search Request"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        336,
+        0
+      ],
+      "id": "541858d3-09f5-4864-8fbf-86cc22f996f3",
+      "name": "Get Skill Ids"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ۱. همه آیتم‌ها رو بگیر\nconst allItems = $input.all();\n\n// ۲. آرایه‌های data همه آیتم‌ها رو با هم ادغام کن\nconst allSkills = allItems.flatMap(item => item.json.data || []);\n\nvar skills = \"\";\nfor (const key in allSkills) {\n  skills += \"&skillIds[\" + key + \"]=\" + allSkills[key].id\n}\nreturn [\n  {\n    \"url\": \"https://www.karlancer.com/api/publics/search/projects?order=newest\" + skills\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        0
+      ],
+      "id": "f7a18f49-333d-40ac-b756-31231c297ac1",
+      "name": "Make Project Search Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst lastProjectId = staticData.lastProjectId || 0;\n\nvar output = [];\n\nif ($input.first().json.data.data[0].id > lastProjectId){\n  output = $input.first().json.data.data[0]\n  staticData.lastProjectId = $input.first().json.data.data[0].id\n}\n\nreturn output"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        192
+      ],
+      "id": "8d6391ba-8644-42a7-905d-fc972e1738a9",
+      "name": "Is there a new project?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b825f25a-098e-4791-8885-8e5de31a149e",
+              "leftValue": "={{ $json }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        784,
+        352
+      ],
+      "id": "7b8ee484-fdcd-436b-a3c5-ef0998188f02",
+      "name": "If it exists"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3930c8f7-3307-4cd6-bb1b-36345a6da92b",
+              "name": "text",
+              "value": "=🚀 **پروژه جدید کارلنسر ثبت شد!**\n\n📌 **عنوان:** {{ $json.title }}\n\n📝 **توضیحات:**\n------------------------------------\n{{ $json.description.length > 200 ? $json.description.slice(0, 200) + '...' : $json.description }}\n------------------------------------\n\n💰 **بودجه:** {{ Number($json.min_budget).toLocaleString('en-US') }} تا {{ Number($json.max_budget).toLocaleString('en-US') }} تومان\n\n⏱ **زمان پیشنهادی:** {{ $json.job_duration }} روز\n\n🔗 [مشاهده و ثبت پیشنهاد](https://www.karlancer.com/projects/{{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1040,
+        336
+      ],
+      "id": "17bd0c19-022c-43d4-9409-a6bee336d37c",
+      "name": "Make Notification"
+    },
+    {
+      "parameters": {
+        "chatId": "7606015504",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        352,
+        176
+      ],
+      "id": "0d52e166-ad47-4317-94f9-129186f1ca72",
+      "name": "Sending new project details",
+      "webhookId": "f9b5f93b-e805-4fa4-b6d1-14d3a79a904e",
+      "notesInFlow": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "7Dc9IXrZM4tYCL0G",
+          "name": "<Telegram Account>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        784,
+        0
+      ],
+      "id": "05b1410b-d762-4822-9c93-a7055727bda7",
+      "name": "Geting Projects"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Skills",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Skills": {
+      "main": [
+        [
+          {
+            "node": "Make Skill Search Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Skill Search Request": {
+      "main": [
+        [
+          {
+            "node": "Get Skill Ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Skill Ids": {
+      "main": [
+        [
+          {
+            "node": "Make Project Search Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Project Search Request": {
+      "main": [
+        [
+          {
+            "node": "Geting Projects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is there a new project?": {
+      "main": [
+        [
+          {
+            "node": "If it exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If it exists": {
+      "main": [
+        [
+          {
+            "node": "Make Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Notification": {
+      "main": [
+        [
+          {
+            "node": "Sending new project details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Geting Projects": {
+      "main": [
+        [
+          {
+            "node": "Is there a new project?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9daad701-d1b3-4e25-afad-d7916ed94532",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fbe2502abad103bd961b392d1c3eb487e6929caf31fc0c5addf632489855a3cb"
+  },
+  "nodeGroups": [],
+  "id": "3tSprChjesSGEQV8",
+  "tags": []
+}
